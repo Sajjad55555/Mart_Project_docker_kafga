@@ -8,6 +8,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from user_service import settings,crud,db
 from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
 import asyncio
+from contextlib import asynccontextmanager
 import json
 # Configuration for JWT
 ALGORITHM = "HS256"
@@ -26,6 +27,7 @@ class UserInformation(SQLModel, table=True):
     username: str  # Add username field for authentication
     password: str  # Add password field for authentication
 
+@asynccontextmanager
 async def lifespan(app: FastAPI)-> AsyncGenerator[None, None]:
     print("Creating tables..")
     # loop.run_until_complete(consume_messages('todos', 'broker:19092'))
@@ -35,7 +37,14 @@ async def lifespan(app: FastAPI)-> AsyncGenerator[None, None]:
 
 
 # Initialize FastAPI app and create database tables
-app = FastAPI()
+app = FastAPI(lifespan=lifespan, title="Hello World API with DB", 
+    version="0.0.1",
+    servers=[
+        {
+            "url": "http://127.0.0.1:8000", # ADD NGROK URL Here Before Creating GPT Action
+            "description": "Development Server"
+        }
+        ])
 @app.post("/signup", response_model=UserInformation)
 async def create_user(user: UserInformation, session: Annotated[Session, Depends(db.get_session)], producer: Annotated[AIOKafkaProducer, Depends(crud.get_kafka_producer)]):
     # user.password = hash_password(user.password)  # Hash the password before saving
