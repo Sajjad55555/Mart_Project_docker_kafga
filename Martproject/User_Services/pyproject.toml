@@ -13,6 +13,7 @@ python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 python-multipart = "^0.0.12"
 sqlmodel = "^0.0.22"
 psycopg2-binary = "^2.9.9"
+aiokafka = "^0.11.0"
 
 
 [build-system]

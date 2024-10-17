@@ -2,10 +2,13 @@ from fastapi import FastAPI, Depends, HTTPException
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordRequestForm
-from typing import Optional
+from typing import Optional,AsyncGenerator
 from typing_extensions import Annotated
 from sqlmodel import Field, Session, SQLModel, create_engine, select
-
+from user_service import settings,crud,db
+from aiokafka import AIOKafkaProducer, AIOKafkaConsumer
+import asyncio
+import json
 # Configuration for JWT
 ALGORITHM = "HS256"
 SECRET_KEY = "A Secure Secret Key"
@@ -23,31 +26,26 @@ class UserInformation(SQLModel, table=True):
     username: str  # Add username field for authentication
     password: str  # Add password field for authentication
 
-# Function to create database and tables
-def create_db_and_tables():
-    # SQLModel.metadata.drop_all(engine)  # Drop existing tables
-    SQLModel.metadata.create_all(engine)  # Create new tables
+async def lifespan(app: FastAPI)-> AsyncGenerator[None, None]:
+    print("Creating tables..")
+    # loop.run_until_complete(consume_messages('todos', 'broker:19092'))
+    task = asyncio.create_task(crud.consume_messages('todos', 'broker:19092'))
+    db.create_db_and_tables()
+    yield   
 
-# JWT token generation function
-def create_access_token(subject: str, expires_delta: timedelta = timedelta(minutes=15)) -> str:
-    expire = datetime.utcnow() + expires_delta
-    to_encode = {"exp": expire, "sub": subject}
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
 # Initialize FastAPI app and create database tables
 app = FastAPI()
-create_db_and_tables()
-
-# Endpoint to save user information in the database
-@app.post("/save_user")
-def save_user(username: str, password: str):
-    user_info = UserInformation(username=username, password=password)
-    with Session(engine) as session:
-        session.add(user_info)
-        session.commit()
-        session.refresh(user_info)
-    return {"message": "User saved successfully", "user": user_info}
+@app.post("/signup", response_model=UserInformation)
+async def create_user(user: UserInformation, session: Annotated[Session, Depends(db.get_session)], producer: Annotated[AIOKafkaProducer, Depends(crud.get_kafka_producer)]):
+    # user.password = hash_password(user.password)  # Hash the password before saving
+    user_info = {field: getattr(user, field) for field in user.dict()}
+    user_json = json.dumps(user_info).encode("utf-8")
+    await producer.send_and_wait("todos", user_json)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return {"message": "User saved successfully", "user": user}
 
 # Login endpoint to authenticate users
 @app.post("/login")
@@ -60,7 +58,7 @@ def login(user_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     if not user_in_db or user_data.password != user_in_db.password:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
 
-    token = create_access_token(subject=user_data.username)
+    token = crud.create_access_token(subject=user_data.username)
     return {"username": user_data.username, "access_token": token}
 
 # chek funcation Token generation endpoint
