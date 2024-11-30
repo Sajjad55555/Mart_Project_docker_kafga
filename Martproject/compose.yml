@@ -11,7 +11,19 @@ services:
       - postgres_db
       - broker
     ports:
-      - "8000:8000"  
+      - "8000:8000"
+  product_service:
+    build:
+      context: ./Product_services
+      dockerfile: Dockerfile
+    container_name: product_services_container
+    volumes:
+      - ./Product_services:/code
+    depends_on:
+      - postgres_db
+      - broker
+    ports:
+      - "8002:8000"      
 
   postgres_db:
     image: postgres:latest

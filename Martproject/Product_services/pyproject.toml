@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "product-service"
+version = "0.1.0"
+description = ""
+authors = ["Sajjad55555 <140962256+Sajjad55555@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+fastapi = "^0.115.3"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-multipart = "^0.0.12"
+sqlmodel = "^0.0.22"
+psycopg2-binary = "^2.9.10"
+aiokafka = "^0.11.0"
+protobuf = "^5.28.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
